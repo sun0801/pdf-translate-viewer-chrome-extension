@@ -36,9 +36,7 @@
 
 ### Microsoft Edgeで使う
 
-Edge用ZIPは現在GitHub Releaseに未公開です。公開後は、以下の配布ページからダウンロードできます。
-
-1. [Edge版の配布ページ（Releases）](https://github.com/sun0801/pdf-translate-viewer-chrome-extension/releases) の添付ファイル `pdf-translate-viewer-edge-vX.Y.Z.zip` をダウンロードして展開します。Chrome用のZIPやGitHub自動生成の「Source code」と区別してください。
+1. [Edge版の配布ページ（Releases）](https://github.com/sun0801/pdf-translate-viewer-chrome-extension/releases) の添付ファイル [pdf-translate-viewer-edge-v0.8.5.zip](https://github.com/sun0801/pdf-translate-viewer-chrome-extension/releases/download/edge-v0.8.5/pdf-translate-viewer-edge-v0.8.5.zip) をダウンロードして展開します。Chrome用のZIPやGitHub自動生成の「Source code」と区別してください。
 2. Edgeで `edge://extensions` を開き、「開発者モード」をONにします。
 3. 「展開して読み込み」から、展開した中の `manifest.json` があるフォルダを選びます。このフォルダは削除・移動しないでください。
 4. PDFを開きます。自動で切り替わらないPDFは、拡張アイコンの「このPDFを翻訳ビューアで開く」から開けます。ローカルPDFには、拡張の詳細で「ファイルのURLへのアクセスを許可する」をONにしてください。

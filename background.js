@@ -1,8 +1,13 @@
 const VIEWER = chrome.runtime.getURL("viewer.html");
 const toViewer = (url) => `${VIEWER}?file=${encodeURIComponent(url)}`;
-const mimeHandler = chrome.mimeHandler?.getStreamInfo
-  ? chrome.mimeHandler
-  : null;
+// Edge packages omit the Chrome-only MIME registration. Even if an API is
+// exposed, use URL routing unless this extension registered its PDF handler.
+const mimeHandler =
+  chrome.runtime.getManifest().mime_types_handler?.["application/pdf"] &&
+  typeof chrome.mimeHandler?.getStreamInfo === "function" &&
+  typeof chrome.mimeHandler?.setMimeHandlerOptions === "function"
+    ? chrome.mimeHandler
+    : null;
 
 // Web上のPDF（http/https）は、読み込みの段階で行き先をビューアに差し替える。
 // ページを開いてから移動し直す方式だと、PDFのページが履歴に残って「戻る」でループしてしまうため。

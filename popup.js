@@ -7,7 +7,7 @@ const note = $("#note");
 
 const HINT = {
   on: "PDFを開くと、自動でこの拡張の画面になります",
-  off: "PDFはいつものビューア（Chrome標準や Google Scholar など）で開きます",
+  off: "PDFはいつものビューア（ブラウザ標準や Google Scholar など）で開きます",
 };
 
 const { autoOpen } = await chrome.storage.local.get({ autoOpen: true });

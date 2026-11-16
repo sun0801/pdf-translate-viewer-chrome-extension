@@ -10,7 +10,13 @@ const background = (
 const popup = await readFile(new URL("../popup.js", import.meta.url), "utf8");
 const VIEWER = "chrome-extension://test/viewer.html";
 
-function fixture(mime = true, timers = { setTimeout, clearTimeout }) {
+function fixture(
+  mime = true,
+  timers = { setTimeout, clearTimeout },
+  manifest = {
+    mime_types_handler: { "application/pdf": { handler_url: "viewer.html" } },
+  }
+) {
   const calls = [],
     errors = [],
     local = { autoOpen: true },
@@ -32,6 +38,7 @@ function fixture(mime = true, timers = { setTimeout, clearTimeout }) {
   const chrome = {
     runtime: {
       getURL: () => VIEWER,
+      getManifest: () => manifest,
       onStartup: listen("startup"),
       onInstalled: listen("installed"),
       onMessage: listen("message"),
@@ -82,6 +89,7 @@ function fixture(mime = true, timers = { setTimeout, clearTimeout }) {
       },
       setMimeHandlerOptions: async (...args) =>
         calls.push(["mimeOptions", ...args]),
+      ...(typeof mime === "object" ? mime : {}),
     };
   const api = vm.runInNewContext(
     `(function(){${background};return {applyAutoOpen,openOriginal};})()`,
@@ -122,6 +130,48 @@ test("MIME routing removes persisted legacy redirects before enabling original-U
     f.calls.some(([kind]) => kind === "navigate"),
     false
   );
+});
+
+test("Edge packages and incomplete MIME APIs keep URL-based PDF routing", async () => {
+  for (const f of [
+    fixture(false),
+    fixture(true, { setTimeout, clearTimeout }, {}),
+    fixture({ setMimeHandlerOptions: undefined }),
+  ]) {
+    await f.api.applyAutoOpen();
+    assert.equal(
+      f.calls.some(([kind]) => kind === "mimeOptions"),
+      false
+    );
+    const rules = f.calls.find(([kind]) => kind === "dynamicRules")[1].addRules;
+    assert.equal(rules.length, 3);
+    for (const url of [
+      "https://example.org/paper.PDF?download=1",
+      "https://arxiv.org/pdf/2301.08243",
+      "https://openreview.net/pdf?id=paper",
+    ]) {
+      const rule = rules.find((rule) =>
+        new RegExp(rule.condition.regexFilter, "i").test(url)
+      );
+      assert.ok(rule, url);
+      assert.equal(rule.action.type, "redirect");
+      assert.equal(
+        rule.action.redirect.regexSubstitution,
+        VIEWER + "?file=\\0"
+      );
+    }
+    await f.events.before({ frameId: 0, tabId: 42, url: "file:///paper.pdf" });
+    assert.equal(
+      f.calls.at(-1)[2].url,
+      VIEWER + "?file=file%3A%2F%2F%2Fpaper.pdf"
+    );
+    f.local.autoOpen = false;
+    await f.api.applyAutoOpen();
+    assert.deepEqual(
+      f.calls.findLast(([kind]) => kind === "dynamicRules")[1].addRules,
+      []
+    );
+  }
 });
 
 test("auto-open OFF disables the MIME handler and preserves the existing OFF indicator", async () => {

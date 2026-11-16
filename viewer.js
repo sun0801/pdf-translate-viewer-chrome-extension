@@ -53,6 +53,8 @@ const GAP = 12; // 左右ページの間隔（CSSの .row gap と合わせる）
 const MAX_CANVAS_PIXELS = 2 ** 24; // 1枚のcanvasの上限（約1600万画素）。拡大しすぎてメモリを食わないように
 const RENDER_QUALITY = 1.5; // 表示に必要な密度より細かく描いて、細字や斜線の粗さを抑える
 const LOCAL_TRANSLATION_LOOKAHEAD = 15;
+const LOCAL_UNAVAILABLE =
+  "このブラウザではローカルAI翻訳を利用できません。設定でGeminiのAPIキーを保存し、「Gemini」を押すと翻訳できます";
 const ZOOMS = [0.5, 0.67, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
 
 const state = {
@@ -111,6 +113,13 @@ function beginTranslation() {
   };
 }
 
+function hasLocalTranslator() {
+  return (
+    typeof self.Translator?.availability === "function" &&
+    typeof self.Translator?.create === "function"
+  );
+}
+
 function updateStartButton() {
   const busy = [...translationActivities].some(
     (a) => a.version === state.translationVersion
@@ -121,7 +130,8 @@ function updateStartButton() {
   ]) {
     const button = $(selector),
       active = busy && state.engine === engine;
-    button.disabled = state.exporting;
+    const unavailable = engine === "chrome" && !hasLocalTranslator();
+    button.disabled = state.exporting || unavailable;
     button.classList.toggle("loading", active);
     button.setAttribute("aria-busy", String(active));
     button.textContent = active ? "中断" : label;
@@ -131,9 +141,11 @@ function updateStartButton() {
     );
     button.title = active
       ? `${label}の翻訳を中断`
-      : engine === "chrome"
-        ? "ローカルAIで翻訳。Chrome内蔵AIを使い、文章は外部に送られません。"
-        : "Geminiで翻訳。PDF全文をGoogleへ送信します。APIキーが必要です。";
+      : unavailable
+        ? LOCAL_UNAVAILABLE
+        : engine === "chrome"
+          ? "ローカルAIで翻訳。ブラウザ内蔵AIを使い、文章は外部に送られません。"
+          : "Geminiで翻訳。PDF全文をGoogleへ送信します。APIキーが必要です。";
   }
 }
 
@@ -643,6 +655,10 @@ async function autoTranslateOnOpen() {
     !state.rows.length
   )
     return;
+  if (!hasLocalTranslator()) {
+    setStatus(LOCAL_UNAVAILABLE);
+    return;
+  }
   dstSel.value = "ja";
   if (srcSel.value === "ja") return; // 日本語の原文を日本語へ再翻訳しない。
   await start("chrome");
@@ -1435,6 +1451,10 @@ async function start(engine = state.engine) {
     setStatus("ローカルAIかGeminiの翻訳ボタンを選んでください");
     return;
   }
+  if (engine === "chrome" && !hasLocalTranslator()) {
+    setStatus(LOCAL_UNAVAILABLE);
+    return;
+  }
   const { geminiKey, geminiModel } = state.settings;
   if (engine === "gemini" && !geminiKey) {
     setStatus("設定でGeminiのAPIキーを入力してください");
@@ -1499,7 +1519,7 @@ async function start(engine = state.engine) {
         }),
       });
     } else {
-      translator = await createChromeTranslator(
+      translator = await createLocalTranslator(
         sourceLanguage,
         targetLanguage,
         controller.signal
@@ -1591,26 +1611,28 @@ async function start(engine = state.engine) {
   }
 }
 
-// Chrome内蔵の Translator API（1段落ずつ順に訳す）
-async function createChromeTranslator(sourceLanguage, targetLanguage, signal) {
-  if (!("Translator" in self)) {
-    setStatus("このChromeはTranslator API未対応です（Chrome 138以降が必要）");
+// Chrome / Edge 内蔵の Translator API（1段落ずつ順に訳す）
+async function createLocalTranslator(sourceLanguage, targetLanguage, signal) {
+  if (!hasLocalTranslator()) {
+    setStatus(LOCAL_UNAVAILABLE);
     return null;
   }
   try {
-    const avail = await Translator.availability({
+    const avail = await self.Translator.availability({
       sourceLanguage,
       targetLanguage,
     });
     signal?.throwIfAborted();
     if (avail === "unavailable") {
-      setStatus(`${sourceLanguage}→${targetLanguage} は未対応の組み合わせです`);
+      setStatus(
+        `${sourceLanguage}→${targetLanguage} はローカルAI未対応の組み合わせです。「Gemini」で翻訳できます`
+      );
       return null;
     }
     setStatus(
       avail === "available" ? "準備中…" : "翻訳モデルをダウンロード中…"
     );
-    const tr = await Translator.create({
+    const tr = await self.Translator.create({
       sourceLanguage,
       targetLanguage,
       signal,
@@ -2188,4 +2210,5 @@ srcSel.onchange = dstSel.onchange = () => {
 if (!pdfSource.nativeFallback)
   disableNativeZoom(self.chrome?.tabs, pdfSource.tabId).catch(() => {});
 
+updateStartButton();
 load();

@@ -215,13 +215,16 @@ async function viewer(
       geminiModel: "gemini-3.5-flash-lite",
     }),
     openSettings: async () => nextSettings,
-    Translator: {
-      availability: async () => "available",
-      create: async () => ({
-        translate: async (text) => "ローカル訳: " + text,
-      }),
-      ...localTranslator,
-    },
+    Translator:
+      localTranslator === null
+        ? undefined
+        : {
+            availability: async () => "available",
+            create: async () => ({
+              translate: async (text) => "ローカル訳: " + text,
+            }),
+            ...localTranslator,
+          },
   };
   context.self.Translator = context.Translator;
   context.chrome = context.self.chrome;
@@ -1994,6 +1997,38 @@ test("unavailable local AI leaves the PDF readable without an automatic Gemini f
   assert.equal(api.state.engine, null);
   assert.equal(api.state.enabled, false);
   assert.match(api.status(), /未対応/);
+});
+
+test("Edge without a Translator API keeps PDF reading and explicit Gemini translation available", async (t) => {
+  let calls = 0;
+  t.mock.method(globalThis, "fetch", async (_url, init) => {
+    calls++;
+    return success(JSON.parse(JSON.parse(init.body).input));
+  });
+  for (const localApi of [
+    null,
+    { availability: undefined },
+    { create: undefined },
+  ]) {
+    const api = await viewer("gemini", localApi);
+    assert.equal(api.localButton.disabled, true);
+    assert.equal(api.startButton.disabled, false);
+    assert.match(api.localButton.title, /Gemini/);
+    const before = calls;
+    await api.autoTranslateOnOpen();
+    assert.equal(calls, before);
+    assert.equal(api.state.enabled, false);
+    assert.equal(api.state.translationVersion, 0);
+    assert.match(api.status(), /このブラウザ.*Gemini/);
+    await api.start("chrome");
+    assert.equal(api.state.translationVersion, 0);
+    await api.startButton.onclick();
+    await idle(api);
+    assert.equal(calls, before + 1);
+    assert.equal(api.state.engine, "gemini");
+    assert.equal(api.state.rows[0].blocks[0].ja, "訳文 1");
+    assert.equal(api.localButton.disabled, true);
+  }
 });
 
 test("local to Gemini keeps current overlays and replaces only completed incoming blocks", async (t) => {

@@ -135,6 +135,7 @@ function loader({
       pdfSource,
       state,
       autoTranslatePending: true,
+      hasLocalTranslator: () => true,
       document,
       tabTitle: createPaperTitle({ document, label }),
       console: { error() {} },

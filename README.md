@@ -1,6 +1,6 @@
 # PDF翻訳ビューア
 
-論文PDFを、原文の図・数式・段組みを残しながら翻訳して読むChrome拡張機能です。
+論文PDFを、原文の図・数式・段組みを残しながら翻訳して読むChrome / Microsoft Edge用の拡張機能です。
 
 このリポジトリは、[kobayashi-31/pdf-translate-viewer-chrome-extension](https://github.com/kobayashi-31/pdf-translate-viewer-chrome-extension) をforkし、村川卓也（[MurakawaTakuya](https://github.com/MurakawaTakuya)）が独自の変更を加えたものです。元の翻訳ビューアをベースに、Geminiの全文翻訳・途中表示、ツールバー、引用表示、原文の文字選択、元URLを維持する表示などを追加・改善しています。
 
@@ -11,7 +11,7 @@
 
 ## 主な機能
 
-- Chrome内蔵のローカルAIと、Gemini APIの翻訳ボタンを個別に用意。
+- ブラウザ内蔵のローカルAIと、Gemini APIの翻訳ボタンを個別に用意。
 - PDFを開いたとき、既定ではローカルAIで日本語へ自動翻訳。設定でOFFにできます。
 - 原文のみ・両方・翻訳後のみの表示切り替え。
 - 原文・訳文の文字選択とコピー、対応ブロックの枠線による強調表示。
@@ -23,21 +23,41 @@
 
 ## 動作環境とインストール
 
-パソコン版Google Chrome 138以降。ローカルAIの利用可否は、ChromeのTranslator APIと選択した言語ペアの対応状況によります。初回は翻訳モデルのダウンロードが必要になる場合があります。スマートフォン版には対応していません。
+パソコン版Google Chrome 138以降、またはMicrosoft Edge。ローカルAIの利用可否は、ブラウザのTranslator APIと選択した言語ペアの対応状況によります。初回は翻訳モデルのダウンロードが必要になる場合があります。スマートフォン版には対応していません。
+
+配布用ZIPからインストールする場合、Chrome・EdgeともにNode.jsは不要です。
+
+### Google Chromeで使う
 
 1. [最新のRelease](https://github.com/MurakawaTakuya/pdf-translate-viewer-chrome-extension/releases/latest) の添付ファイル `pdf-translate-viewer-vX.Y.Z.zip` をダウンロードして展開します。GitHub自動生成の「Source code」ではなく、この配布用ZIPを使ってください。開発する場合はこのリポジトリをcloneしても使えます。
 2. `chrome://extensions` を開き、「デベロッパー モード」をONにします。
 3. 「パッケージ化されていない拡張機能を読み込む」から、`manifest.json` のあるフォルダを選びます。
 4. PDFを開きます。拡張機能を読み込んだフォルダは削除・移動しないでください。
 
+### Microsoft Edgeで使う
+
+Edge用ZIPは現在GitHub Releaseに未公開です。公開後は、以下の配布ページからダウンロードできます。
+
+1. [Edge版の配布ページ（Releases）](https://github.com/sun0801/pdf-translate-viewer-chrome-extension/releases) の添付ファイル `pdf-translate-viewer-edge-vX.Y.Z.zip` をダウンロードして展開します。Chrome用のZIPやGitHub自動生成の「Source code」と区別してください。
+2. Edgeで `edge://extensions` を開き、「開発者モード」をONにします。
+3. 「展開して読み込み」から、展開した中の `manifest.json` があるフォルダを選びます。このフォルダは削除・移動しないでください。
+4. PDFを開きます。自動で切り替わらないPDFは、拡張アイコンの「このPDFを翻訳ビューアで開く」から開けます。ローカルPDFには、拡張の詳細で「ファイルのURLへのアクセスを許可する」をONにしてください。
+5. ローカルAIを利用できない環境ではボタンが無効になります。右上の設定にGemini APIキーを保存して「Gemini」を押してください。自動でGeminiへ本文を送信することはありません。
+
+ソースコードからEdge用フォルダを生成する方法は、後述の[開発時の確認](#開発時の確認)を参照してください。
+
+Edge用パッケージはChrome固有のMIMEハンドラ登録を除き、URLに基づいてPDFを開きます。`.pdf`で終わるURL（クエリ付きも含む）・arXiv・OpenReviewを自動表示の対象とし、アドレスは `chrome-extension://…/viewer.html?file=…` 形式になります。POSTや使い捨てURLなど、元URLから再取得できないPDFには対応できない場合があります。
+
+Microsoftも[EdgeのTranslator API](https://learn.microsoft.com/en-us/microsoft-edge/web-platform/translator-api)を案内していますが、実行環境でAPIの有無を確認してから使います。Linux版Edge 155でPDFの自動表示・原文選択レイヤー・Gemini操作と訳文反映（API応答をモック）・翻訳PDFの保存・通常ビューアへの復帰を確認しました。Windows/macOS、実際のGemini APIへの接続、ローカルモデルによる翻訳は未確認です。
+
 ### インストール済みの拡張機能を更新する
 
-1. 最新のReleaseから配布用ZIPをダウンロードして展開します。
-2. 現在Chromeに読み込ませているフォルダへ、展開したフォルダの中身を上書きします。読み込み元のフォルダ名・場所は変えません。
-3. `chrome://extensions` で「PDF翻訳ビューア」の再読み込み（丸い矢印）を押します。
+1. 使用するブラウザ用の新しい配布ZIPをダウンロードして展開します。Chrome用とEdge用を取り違えないでください。
+2. 現在ブラウザに読み込ませているフォルダへ、展開したフォルダの中身を上書きします。読み込み元のフォルダ名・場所は変えません。
+3. Chromeは `chrome://extensions`、Edgeは `edge://extensions` で「PDF翻訳ビューア」の再読み込み（丸い矢印）を押します。
 4. PDFの元URLを開き直します。タブ内の翻訳結果は引き継がれません。
 
-開発用にcloneしたフォルダから読み込んでいる場合は、ZIPの上書きではなく、そのフォルダのコードを更新してから手順3・4を行ってください。
+開発用にcloneしたフォルダから読み込んでいる場合は、そのフォルダのコードを更新してから手順3・4を行ってください。Edge用の `dist/edge` を読み込んでいる場合は、コード更新後に `npm run package:edge` を再実行してから手順3・4を行ってください。
 
 **PDFタブの更新だけでは、新しいmanifestやバックグラウンド処理は反映されません。** 既に開いている `viewer.html?file=...` のタブは自動移行しません。
 
@@ -93,7 +113,7 @@ APIキーを設定していれば、翻訳前やローカルAIの使用中も、
 
 ### ローカルAI
 
-ChromeのTranslator APIでブロックごとに翻訳し、PDF本文を外部の翻訳APIへ送りません。APIキーは不要です。表示中のページと、その先15ページまで先読みし、スクロール先のページを優先します。翻訳後PDFを保存する際は、残りのページも同じローカルAIで翻訳します。
+ブラウザのTranslator APIでブロックごとに翻訳し、PDF本文を外部の翻訳APIへ送りません。APIキーは不要です。表示中のページと、その先15ページまで先読みし、スクロール先のページを優先します。翻訳後PDFを保存する際は、残りのページも同じローカルAIで翻訳します。
 
 ### Gemini
 
@@ -168,6 +188,14 @@ npm run format        # 整形を適用
 npm run lint:fix      # 自動修正できるlint指摘を修正
 npm test              # オフラインテストだけ実行
 ```
+
+Edge用の読み込みフォルダをソースから生成する場合は、リポジトリのフォルダで次を実行します。この生成処理にはNode.js 24以降を使いますが、`npm ci` による追加パッケージのインストールは不要です。
+
+```sh
+npm run package:edge
+```
+
+生成した `dist/edge` を、`edge://extensions` の「展開して読み込み」で選びます。コードを更新したときは、このコマンドを再実行して拡張機能を再読み込みします。配布用ZIPから利用する方は、この作業は不要です。
 
 ESLintは推奨ルールを使い、拡張機能のブラウザAPIとNode.jsのテスト・検証スクリプトを分けて検査します。Prettierは個人テンプレートと同じ2スペース・セミコロンあり・ダブルクォート・80文字幅です。第三者の `lib/`・フォント・ライセンスと、過去の実験記録 `reports/` は対象外です。Markdownは既存の書式を保持します。
 

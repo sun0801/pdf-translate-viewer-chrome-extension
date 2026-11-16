@@ -11,6 +11,7 @@ export default [
       "LICENSES/**",
       "reports/**",
       "node_modules/**",
+      "dist/**",
     ],
   },
   js.configs.recommended,

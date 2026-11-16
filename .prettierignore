@@ -8,3 +8,4 @@ reports/
 *.md
 **/*.md
 package-lock.json
+dist/
